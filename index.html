@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Word Wall Breaker — Brain Trainer</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#141b33; --fg:#e8eefc; --muted:#8ea0c8;
+    --accent:#36e0c8; --accent2:#7c8cff; --good:#46e08a; --bad:#ff5d6c; --warn:#ffd166;
+    --panel:rgba(20,27,51,.82); --line:rgba(140,160,210,.18);
+  }
+  html[data-theme="hi"]{
+    --bg:#000008; --bg2:#0a0a16; --fg:#ffffff; --muted:#cfd8f5;
+    --accent:#00ffd5; --accent2:#aab4ff; --good:#5dffa0; --bad:#ff5470; --warn:#ffe066;
+    --panel:rgba(8,10,22,.92); --line:rgba(200,210,255,.3);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:
+     radial-gradient(1200px 700px at 70% -10%, var(--bg2), var(--bg)) fixed;
+     color:var(--fg);font-family:"Segoe UI",system-ui,Arial,sans-serif;}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;padding:8px 14px;display:flex;
+    gap:14px;align-items:center;pointer-events:none;font-weight:600;z-index:5;
+    text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  #hud .stat{display:flex;flex-direction:column;line-height:1.05}
+  #hud .stat small{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  #hud .stat b{font-size:19px}
+  #hud .spacer{flex:1}
+  #lives span{color:var(--bad);font-size:18px;letter-spacing:1px}
+  #combo b{color:var(--warn)}
+  #modeTag{padding:4px 10px;border:1px solid var(--line);border-radius:999px;
+    font-size:12px;color:var(--accent);background:var(--panel)}
+  #pauseBtn{pointer-events:auto;cursor:pointer}
+  #guessBtn{pointer-events:auto!important;cursor:pointer!important}
+
+  /* ---------- Trays ---------- */
+  #trays{position:absolute;left:0;right:0;bottom:8px;display:flex;flex-wrap:wrap;
+    gap:8px 16px;justify-content:center;padding:0 10px;z-index:4;pointer-events:none}
+  .tray{display:flex;align-items:center;gap:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:5px 9px}
+  .tray .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .tray .slots{display:flex;gap:4px}
+  .slot{width:20px;height:26px;border-radius:5px;display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:15px;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);color:var(--fg)}
+  .slot.empty{color:transparent}
+  .slot.next{box-shadow:0 0 0 2px var(--warn) inset, 0 0 10px var(--warn);
+    animation:pulse 1s ease-in-out infinite}
+  .slot.done{background:rgba(70,224,138,.18);border-color:var(--good)}
+  @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.5)}}
+  .tray.solved{opacity:.55}
+  .tray .cat{font-weight:800;font-size:13px}
+  .tray .cnt{font-size:12px;color:var(--muted)}
+
+  /* ---------- Overlays ---------- */
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    z-index:20;background:rgba(6,9,20,.66);backdrop-filter:blur(5px);padding:20px}
+  .overlay.show{display:flex;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
+  .card{width:min(560px,94vw);max-height:92vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:20px;padding:26px 26px 22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .title{font-size:30px;font-weight:900;letter-spacing:.5px;margin:0 0 2px}
+  .title .a{color:var(--accent)} .title .b{color:var(--accent2)}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:14px}
+  .btn{display:block;width:100%;margin:8px 0;padding:13px 16px;border-radius:12px;
+    border:1px solid var(--line);background:linear-gradient(180deg,rgba(124,140,255,.16),rgba(124,140,255,.05));
+    color:var(--fg);font-size:16px;font-weight:700;cursor:pointer;text-align:left;
+    transition:transform .08s,border-color .15s,background .15s}
+  .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+  .btn .d{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),#15b9a3);color:#022;border-color:transparent}
+  .btn.primary .d{color:#044}
+  .btn.ghost{background:transparent}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+  @media(max-width:480px){.grid-modes{grid-template-columns:1fr}}
+  .setline{display:flex;align-items:center;justify-content:space-between;
+    padding:11px 2px;border-bottom:1px solid var(--line)}
+  .setline:last-child{border-bottom:none}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:none;background:transparent;color:var(--muted);padding:7px 12px;
+    cursor:pointer;font-weight:700;font-size:13px}
+  .seg button.on{background:var(--accent);color:#022}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 16px}
+  .statbox{background:rgba(255,255,255,.04);border:1px solid var(--line);
+    border-radius:12px;padding:12px}
+  .statbox small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .statbox b{display:block;font-size:24px;margin-top:3px}
+  .big{font-size:40px;text-align:center;font-weight:900;margin:6px 0}
+  .center{text-align:center}
+  .hintline{text-align:center;color:var(--muted);font-size:13px;margin-top:8px}
+  kbd{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font-size:12px}
+  #flash{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:0;
+    transition:opacity .12s}
+  #memFlash{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    z-index:8;pointer-events:none;flex-direction:column;gap:10px}
+  #memFlash .w{font-size:min(13vw,90px);font-weight:900;letter-spacing:.15em;color:var(--accent)}
+  #memFlash .t{color:var(--muted);font-weight:700}
+  /* --- Word Reveal --- */
+  .reveal-word-row{margin:14px 0;opacity:0;transform:translateY(10px);transition:opacity .3s,transform .35s}
+  .reveal-word-row.show{opacity:1;transform:none}
+  .reveal-tiles{display:flex;justify-content:center;gap:5px;margin-bottom:6px}
+  .rtile{width:42px;height:50px;border-radius:9px;display:inline-flex;align-items:center;
+    justify-content:center;font-size:24px;font-weight:900;border:2px solid;
+    opacity:0;transform:scale(.4) rotateX(-70deg);
+    transition:opacity .22s,transform .32s cubic-bezier(.34,1.5,.64,1)}
+  .rtile.pop{opacity:1;transform:none}
+  .rtile.missed{border-color:var(--bad)!important;background:rgba(255,93,108,.1)!important;
+    box-shadow:none!important;color:var(--bad)!important}
+  .reveal-scramble{font-size:11px;letter-spacing:.16em;color:var(--muted);text-align:center;margin-top:3px}
+  .reveal-badge{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    text-align:center;margin-bottom:5px}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <!-- In-game HUD -->
+  <div id="hud" style="display:none">
+    <div class="stat"><small>Score</small><b id="hScore">0</b></div>
+    <div class="stat"><small>Level</small><b id="hLevel">1</b></div>
+    <div class="stat" id="combo"><small>Combo</small><b id="hCombo">x1</b></div>
+    <div class="stat" id="timer" style="display:none"><small>Time</small><b id="hTime">--</b></div>
+    <div class="spacer"></div>
+    <div id="modeTag">Unscramble</div>
+    <button id="guessBtn" style="display:none;
+      border:1px solid var(--warn);background:rgba(255,209,102,.12);color:var(--warn);
+      font-weight:800;font-size:13px;padding:5px 12px;border-radius:10px">🧠 Guess <kbd style="font-size:10px;opacity:.7">G</kbd></button>
+    <div class="stat" id="lives"><small>Lives</small><span id="hLives">♥♥♥</span></div>
+    <div class="stat"><small id="pauseBtn">⏸ Pause</small><b>&nbsp;</b></div>
+  </div>
+
+  <div id="trays" style="display:none"></div>
+  <div id="flash"></div>
+  <div id="memFlash"><div class="w" id="memWord"></div><div class="t">Memorize the order!</div></div>
+
+  <!-- MENU -->
+  <div class="overlay show" id="ovMenu">
+    <div class="card center">
+      <h1 class="title"><span class="a">WORD</span> WALL <span class="b">BREAKER</span></h1>
+      <p class="sub">A brain‑training breakout. Read the scrambled wall, then smash the letters <b>in spelling order</b>. Train vocabulary, focus &amp; memory.</p>
+      <button class="btn primary" id="btnPlay">▶ Play<span class="d">Jump into Unscramble mode</span></button>
+      <button class="btn" id="btnModes">🎮 Choose Mode<span class="d">Unscramble · Memory · Category · Time Attack</span></button>
+      <div class="row2">
+        <button class="btn ghost" id="btnStats">📊 Stats</button>
+        <button class="btn ghost" id="btnSettings">⚙ Settings</button>
+      </div>
+      <p class="hintline">Move: <kbd>mouse</kbd>/<kbd>drag</kbd> · Launch: <kbd>Space</kbd>/<kbd>click</kbd> · Pause: <kbd>Esc</kbd></p>
+    </div>
+  </div>
+
+  <!-- MODE SELECT -->
+  <div class="overlay" id="ovModes">
+    <div class="card">
+      <h2 class="title" style="font-size:24px">Choose a Mode</h2>
+      <p class="sub">Each mode trains a different cognitive skill.</p>
+      <div class="grid-modes" id="modeBtns"></div>
+      <button class="btn ghost" id="modesBack" style="margin-top:12px">← Back</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="overlay" id="ovSettings">
+    <div class="card">
+      <h2 class="title" style="font-size:24px">Settings</h2>
+      <p class="sub">Saved automatically on this device.</p>
+      <div class="setline"><span>Difficulty</span>
+        <div class="seg" id="segDiff">
+          <button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button>
+        </div></div>
+      <div class="setline"><span>Sound</span>
+        <div class="seg" id="segSound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
+      <div class="setline"><span>High contrast</span>
+        <div class="seg" id="segTheme"><button data-v="normal">Normal</button><button data-v="hi">High</button></div></div>
+      <button class="btn primary" id="setBack" style="margin-top:16px">Done</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="overlay" id="ovStats">
+    <div class="card">
+      <h2 class="title" style="font-size:24px">Your Stats</h2>
+      <p class="sub">Lifetime brain‑training progress.</p>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="row2">
+        <button class="btn ghost" id="statsReset">Reset stats</button>
+        <button class="btn primary" id="statsBack">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="overlay" id="ovPause">
+    <div class="card center">
+      <h2 class="title" style="font-size:26px">Paused</h2>
+      <p class="sub" id="pauseSub"></p>
+      <button class="btn primary" id="btnResume">▶ Resume</button>
+      <button class="btn ghost" id="btnRestart">↺ Restart level</button>
+      <button class="btn ghost" id="btnQuit">🏠 Main menu</button>
+    </div>
+  </div>
+
+  <!-- LEVEL COMPLETE -->
+  <div class="overlay" id="ovLevel">
+    <div class="card center">
+      <h2 class="title" style="font-size:26px">Level <span class="a" id="lvlNum">1</span> Clear!</h2>
+      <p class="sub" id="lvlSub"></p>
+      <div class="big" id="lvlScore">0</div>
+      <button class="btn primary" id="btnNext">▶ Next Level</button>
+      <button class="btn ghost" id="btnLvlQuit">Main menu</button>
+    </div>
+  </div>
+
+  <!-- WORD REVEAL -->
+  <div class="overlay" id="ovReveal">
+    <div class="card" style="max-width:600px;text-align:center">
+      <h2 class="title" style="font-size:24px">The Words <span class="a">Were…</span></h2>
+      <p class="sub" id="revealSub"></p><div id="revealWords"></div>
+      <button class="btn primary" id="revealContinue" style="margin-top:18px;opacity:0;transition:opacity .4s .1s">Continue →</button>
+    </div>
+  </div>
+
+  <!-- GUESS -->
+  <div class="overlay" id="ovGuess">
+    <div class="card">
+      <h2 class="title" style="font-size:22px">🧠 Guess the Word<span id="guessPlural"></span></h2>
+      <p class="sub">Guess the words you know — <b>leave others blank to skip them</b>.<br>
+        <span style="color:var(--good);font-weight:700">✓ Any correct guess earns a bonus life.</span>
+        &nbsp;<span style="color:var(--bad);font-weight:700">✗ Wrong answers cost a life each.</span></p>
+      <div id="guessInputs"></div>
+      <div class="row2" style="margin-top:16px">
+        <button class="btn ghost" id="guessCancel">Cancel</button>
+        <button class="btn primary" id="guessSubmit">✓ Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay" id="ovOver">
+    <div class="card center">
+      <h2 class="title" style="font-size:30px">Game Over</h2>
+      <p class="sub" id="overSub"></p>
+      <div class="big" id="overScore">0</div>
+      <p class="center" id="overBest" style="color:var(--warn);font-weight:700"></p>
+      <button class="btn primary" id="btnAgain">↺ Play Again</button>
+      <button class="btn ghost" id="btnOverQuit">Main menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================= *
+ *  WORD WALL BREAKER — single-file brain-training breakout
+ * ============================================================= */
+
+/* ---------- Word data ---------- */
+const WORDS = {
+  3:["cat","dog","sun","map","key","owl","ice","jam","fox","bee","sky","cup","arm","oak","sea","pen","fig","gem","hat","ink"],
+  4:["lion","moon","star","tree","fish","gold","wind","cake","frog","king","wave","leaf","bird","book","rain","ship","door","lamp","drum","rose"],
+  5:["plant","brain","tiger","cloud","river","grape","stone","flame","piano","robot","sugar","beach","candy","eagle","zebra","train","light","dance","ocean","music"],
+  6:["planet","forest","castle","dragon","orange","silver","monkey","garden","rocket","bridge","pencil","jungle","wizard","violin","cherry","puzzle","temple","candle","spider","yellow"],
+  7:["picture","diamond","journey","library","kitchen","monster","rainbow","whisper","gravity","crystal","balloon","cabinet","octopus","stadium","volcano","penguin","compass","harvest","mystery","blanket"]
+};
+const CATEGORIES = {
+  Animals:["lion","tiger","zebra","whale","horse","mouse","panda","koala","otter","camel","eagle","shark"],
+  Fruits :["apple","grape","mango","lemon","peach","melon","berry","plum","kiwi","guava","cherry","banana"],
+  Colors :["green","white","black","brown","amber","coral","ivory","olive","azure","beige","peach","cream"],
+  Nature :["river","cloud","stone","beach","ocean","field","grass","storm","frost","ember","marsh","creek"],
+  Space  :["comet","orbit","lunar","solar","mars","venus","pluto","star","nova","cosmos","meteor","saturn"]
+};
+
+/* ---------- Persistence ---------- */
+const SKEY="wwb_stats_v1", CKEY="wwb_cfg_v1";
+const cfg = Object.assign({diff:"normal",sound:"on",theme:"normal"},
+            JSON.parse(localStorage.getItem(CKEY)||"{}"));
+let stats = Object.assign({high:0,streak:0,solved:0,hits:0,correct:0,played:0},
+            JSON.parse(localStorage.getItem(SKEY)||"{}"));
+const saveCfg=()=>localStorage.setItem(CKEY,JSON.stringify(cfg));
+const saveStats=()=>localStorage.setItem(SKEY,JSON.stringify(stats));
+function applyTheme(){document.documentElement.dataset.theme = cfg.theme==="hi"?"hi":"";}
+applyTheme();
+
+/* ---------- Canvas ---------- */
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth; H=window.innerHeight;
+  cv.width=W*DPR; cv.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(game.state==="PLAYING"||game.state==="PAUSED"||game.state==="MEMORIZE") layout();
+}
+window.addEventListener("resize",resize);
+
+/* ---------- Audio ---------- */
+let AC=null;
+function beep(freq,dur=.08,type="square",vol=.06){
+  if(cfg.sound!=="on")return;
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=type;o.frequency.value=freq;o.connect(g);g.connect(AC.destination);
+    g.gain.setValueAtTime(vol,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+dur);
+    o.start();o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const sGood =()=>beep(660,.07,"square");
+const sChain=(c)=>beep(440+Math.min(c,12)*40,.06,"triangle");
+const sBad  =()=>beep(150,.14,"sawtooth",.05);
+const sLevel=()=>{beep(523,.1);setTimeout(()=>beep(659,.1),90);setTimeout(()=>beep(784,.16),180);};
+const sLife =()=>beep(200,.25,"sine",.06);
+const sOver =()=>{beep(330,.18);setTimeout(()=>beep(247,.18),140);setTimeout(()=>beep(165,.3),280);};
+
+/* ---------- Helpers ---------- */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function scrambleOrder(n){
+  if(n<=1)return [0];
+  let o; let tries=0;
+  do{o=shuffle([...Array(n).keys()]);tries++;}
+  while(o.every((v,i)=>v===i)&&tries<20);
+  return o;
+}
+const ACCENTS=["#36e0c8","#7c8cff","#ffd166","#ff7eb6","#6be585","#ff9f43"];
+
+/* ---------- Game state ---------- */
+const game={
+  state:"MENU", mode:"unscramble", level:1, score:0, lives:3,
+  combo:0, maxComboRun:0,
+  words:[], bricks:[], particles:[],
+  ball:null, paddle:null, launched:false,
+  timeLeft:0, sessionSolved:0, sessionHits:0, sessionCorrect:0,
+  flashColor:null
+};
+const DIFF={
+  easy  :{speed:300,minLen:3,maxLen:5,lives:4,time:75},
+  normal:{speed:360,minLen:3,maxLen:6,lives:3,time:60},
+  hard  :{speed:430,minLen:4,maxLen:7,lives:2,time:45}
+};
+const MODES={
+  unscramble:{name:"Unscramble",desc:"Smash letters in spelling order"},
+  memory    :{name:"Memory",    desc:"Word flashes, then recall the order"},
+  category  :{name:"Category",  desc:"Break only words that fit the topic"},
+  time      :{name:"Time Attack",desc:"Clear as many words as the clock allows"}
+};
+
+/* ---------- DOM refs ---------- */
+const $=id=>document.getElementById(id);
+const hud=$("hud"), trays=$("trays");
+const overlays={MENU:$("ovMenu"),MODES:$("ovModes"),SETTINGS:$("ovSettings"),
+  STATS:$("ovStats"),PAUSE:$("ovPause"),LEVEL:$("ovLevel"),OVER:$("ovOver"),
+  GUESS:$("ovGuess"),REVEAL:$("ovReveal")};
+function hideOverlays(){Object.values(overlays).forEach(o=>o.classList.remove("show"));}
+function showOverlay(k){hideOverlays();if(overlays[k])overlays[k].classList.add("show");}
+
+/* ============================================================= *
+ *  LEVEL BUILD
+ * ============================================================= */
+function diff(){return DIFF[cfg.diff]||DIFF.normal;}
+
+function buildLevel(){
+  const d=diff(), L=game.level;
+  game.words=[]; game.bricks=[]; game.particles=[];
+  game.launched=false; game.flashColor=null;
+
+  if(game.mode==="category"){
+    buildCategoryLevel(L);
+  }else{
+    // unscramble / memory / time : N scrambled words
+    const nWords = clamp(2+Math.floor(L/2), 2, 4);
+    const len = clamp(d.minLen + Math.floor((L-1)/2), d.minLen, d.maxLen);
+    const used=new Set();
+    for(let i=0;i<nWords;i++){
+      let bank=WORDS[clamp(len + (i%2),3,7)]||WORDS[5];
+      let w; let t=0;
+      do{w=pick(bank).toUpperCase();t++;}while(used.has(w)&&t<30);
+      used.add(w);
+      const order=scrambleOrder(w.length);
+      game.words.push({answer:w, order, live:0, solved:false,
+        accent:ACCENTS[i%ACCENTS.length], cat:null});
+    }
+  }
+  // setup ball + paddle
+  game.paddle={w:Math.max(90,W*0.16),h:14,x:W/2-55,y:H-92};
+  resetBall();
+  layout();
+  buildTrays();
+  if(game.mode==="memory"){ startMemorize(); }
+  else{ game.state="PLAYING"; }
+}
+
+function buildCategoryLevel(L){
+  const catName=pick(Object.keys(CATEGORIES));
+  const members=shuffle([...CATEGORIES[catName]]);
+  const others=[];
+  Object.keys(CATEGORIES).forEach(k=>{if(k!==catName)others.push(...CATEGORIES[k]);});
+  shuffle(others);
+  const nMem=clamp(3+Math.floor(L/2),3,6);
+  const nOther=clamp(3+Math.floor(L/2),3,7);
+  const list=[];
+  for(let i=0;i<nMem;i++) list.push({word:members[i%members.length].toUpperCase(),member:true});
+  for(let i=0;i<nOther;i++) list.push({word:others[i%others.length].toUpperCase(),member:false});
+  shuffle(list);
+  game.category={name:catName, total:nMem, broken:0, list};
+}
+
+function resetBall(){
+  const d=diff();
+  const sp=d.speed + (game.level-1)*22;
+  const ang=-Math.PI/2 + rnd(-.25,.25);
+  game.ball={x:game.paddle.x+game.paddle.w/2, y:game.paddle.y-12, r:8,
+    vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, speed:sp};
+  game.launched=false;
+}
+
+/* ---------- Layout bricks for current canvas size ---------- */
+function layout(){
+  if(game.paddle){
+    game.paddle.y=H-92;
+    game.paddle.x=clamp(game.paddle.x,0,W-game.paddle.w);
+  }
+  const topPad=70, botPad=150;
+  const region=Math.max(180,H-topPad-botPad);
+
+  if(game.mode==="category"){
+    const items=game.category.list;
+    const cols=clamp(Math.floor(W/150),2,5);
+    const rows=Math.ceil(items.length/cols);
+    const gap=10;
+    const bw=Math.min(150,(W-40-gap*(cols-1))/cols);
+    const bh=Math.min(44,(region-gap*(rows-1))/rows);
+    const totalW=cols*bw+(cols-1)*gap;
+    const startX=(W-totalW)/2;
+    const startY=topPad+Math.max(0,(region-(rows*bh+(rows-1)*gap))/2);
+    game.bricks=[];
+    items.forEach((it,i)=>{
+      if(it.broken)return;
+      const c=i%cols, r=Math.floor(i/cols);
+      game.bricks.push({x:startX+c*(bw+gap), y:startY+r*(bh+gap), w:bw, h:bh,
+        label:it.word, ref:it, member:it.member, kind:"cat", hitT:0});
+    });
+    return;
+  }
+
+  // word rows
+  const rows=game.words.length;
+  const rowGap=14;
+  const rowH=Math.min(46,(region-rowGap*(rows-1))/rows);
+  const startY=topPad+Math.max(0,(region-(rows*rowH+(rows-1)*rowGap))/2);
+  game.bricks=[];
+  game.words.forEach((word,ri)=>{
+    if(word.solved)return;
+    const n=word.answer.length;
+    const gap=8;
+    const bw=Math.min(54,(W-40-gap*(n-1))/n);
+    const bh=rowH-6;
+    const totalW=n*bw+(n-1)*gap;
+    const sx=(W-totalW)/2;
+    const y=startY+ri*(rowH+rowGap);
+    for(let c=0;c<n;c++){
+      const ans=word.order[c];           // which answer index sits here
+      if(ans<word.live) continue;        // letter already cleared (broken in order)
+      game.bricks.push({x:sx+c*(bw+gap), y:y+3, w:bw, h:bh,
+        label:word.answer[ans], ansIdx:ans, word:word, kind:"letter", hitT:0});
+    }
+  });
+}
+
+/* ============================================================= *
+ *  TRAYS (DOM)
+ * ============================================================= */
+function buildTrays(){
+  trays.innerHTML="";
+  if(game.mode==="category"){
+    const t=document.createElement("div");t.className="tray";
+    t.innerHTML=`<span class="dot" style="background:var(--accent)"></span>
+      <span class="cat">Break all: ${game.category.name}</span>
+      <span class="cnt" id="catCnt"></span>`;
+    trays.appendChild(t);
+    updateTrays();return;
+  }
+  game.words.forEach((w,i)=>{
+    const t=document.createElement("div");t.className="tray";t.dataset.i=i;
+    let slots="";
+    for(let k=0;k<w.answer.length;k++) slots+=`<div class="slot empty">${w.answer[k]}</div>`;
+    t.innerHTML=`<span class="dot" style="background:${w.accent}"></span><div class="slots">${slots}</div>`;
+    trays.appendChild(t);
+  });
+  updateTrays();
+}
+function updateTrays(){
+  if(game.mode==="category"){
+    const c=$("catCnt");
+    if(c)c.textContent=`${game.category.total-game.category.broken} left`;
+    return;
+  }
+  [...trays.children].forEach(t=>{
+    const w=game.words[+t.dataset.i]; if(!w)return;
+    t.classList.toggle("solved",w.solved);
+    const slots=t.querySelectorAll(".slot");
+    slots.forEach((s,k)=>{
+      s.className="slot";
+      if(k<w.live){s.classList.add("done");s.textContent=w.answer[k];}
+      else if(k===w.live && game.mode!=="memory"){s.classList.add("next");s.textContent="?";}
+      else if(k===w.live && game.mode==="memory"){s.classList.add("next");s.textContent="";s.classList.add("empty");}
+      else{s.classList.add("empty");s.textContent=w.answer[k];}
+    });
+  });
+}
+
+/* ---------- Memory mode flash ---------- */
+function startMemorize(){
+  game.state="MEMORIZE";
+  const mf=$("memFlash"), mw=$("memWord");
+  // show all words stacked
+  mw.innerHTML=game.words.map(w=>`<div>${w.answer}</div>`).join("");
+  mf.style.display="flex";
+  const dur = 1400 + game.words.reduce((a,w)=>a+w.answer.length,0)*120;
+  setTimeout(()=>{ mf.style.display="none"; game.state="PLAYING"; }, dur);
+}
+
+/* ============================================================= *
+ *  INPUT
+ * ============================================================= */
+function movePaddleTo(clientX){
+  if(!game.paddle)return;
+  const x=clientX - game.paddle.w/2;
+  game.paddle.x=clamp(x,0,W-game.paddle.w);
+  if(!game.launched){game.ball.x=game.paddle.x+game.paddle.w/2;}
+}
+window.addEventListener("mousemove",e=>movePaddleTo(e.clientX));
+cv.addEventListener("touchmove",e=>{e.preventDefault();movePaddleTo(e.touches[0].clientX);},{passive:false});
+cv.addEventListener("touchstart",e=>{movePaddleTo(e.touches[0].clientX);launch();},{passive:false});
+cv.addEventListener("mousedown",launch);
+function launch(){
+  if(game.state==="PLAYING"&&!game.launched){game.launched=true;}
+}
+window.addEventListener("keydown",e=>{
+  if(e.code==="Space"){e.preventDefault();
+    if(game.state==="PLAYING")launch(); }
+  if(e.code==="Escape"||e.key==="p"||e.key==="P"){
+    if(game.state==="PLAYING")pause();
+    else if(game.state==="PAUSED")resume();
+  }
+  if(e.key==="g"||e.key==="G"){ openGuess(); }
+});
+
+/* ============================================================= *
+ *  GAME LOGIC
+ * ============================================================= */
+function correctHit(word,brick){
+  word.live++;
+  game.combo++;
+  game.maxComboRun=Math.max(game.maxComboRun,game.combo);
+  const gain=10*(1+Math.floor(game.combo/3));
+  game.score+=gain;
+  game.sessionHits++; game.sessionCorrect++;
+  brick.broken=true;
+  spawnParticles(brick,word.accent);
+  sChain(game.combo);
+  if(word.live>=word.answer.length){
+    word.solved=true;
+    game.score+=50*game.level;
+    game.sessionSolved++;
+    sGood();
+  }
+  updateHUD(); updateTrays();
+  layout(); // remove broken bricks
+  checkWin();
+}
+function wrongHit(){
+  game.combo=0;
+  game.sessionHits++;
+  flash("var(--bad)");
+  sBad();
+  updateHUD();
+}
+function categoryHit(brick){
+  game.sessionHits++;
+  if(brick.member){
+    brick.ref.broken=true;
+    game.category.broken++;
+    game.combo++; game.maxComboRun=Math.max(game.maxComboRun,game.combo);
+    game.score+=15*(1+Math.floor(game.combo/3));
+    game.sessionCorrect++;
+    spawnParticles(brick,C.good);
+    sChain(game.combo);
+    updateHUD();updateTrays();layout();
+    checkWin();
+  }else{
+    game.combo=0;
+    game.score=Math.max(0,game.score-5);
+    flash("var(--bad)");sBad();updateHUD();
+  }
+}
+function checkWin(){
+  let done;
+  if(game.mode==="category"){ done=game.category.broken>=game.category.total; }
+  else { done=game.words.every(w=>w.solved); }
+  if(done){
+    if(game.mode==="time"){ game.level++; buildLevel(); updateHUD(); } // next wave, keep clock
+    else levelComplete();
+  }
+}
+function loseLife(){
+  if(game.mode==="time"){ game.combo=0; resetBall(); return; }
+  game.lives--; game.combo=0; sLife();
+  updateHUD();
+  if(game.lives<=0){ gameOver(); }
+  else { resetBall(); }
+}
+
+/* ---------- particles ---------- */
+function spawnParticles(b,color){
+  const cx=b.x+b.w/2, cy=b.y+b.h/2;
+  for(let i=0;i<10;i++){
+    game.particles.push({x:cx,y:cy,vx:rnd(-160,160),vy:rnd(-200,40),
+      life:1,color:color, size:rnd(2,5)});
+  }
+}
+function flash(color){
+  const f=$("flash");
+  f.style.background=`radial-gradient(circle, ${color}55, transparent 70%)`;
+  f.style.opacity=".9";
+  setTimeout(()=>f.style.opacity="0",110);
+}
+
+/* ============================================================= *
+ *  UPDATE / PHYSICS
+ * ============================================================= */
+function update(dt){
+  if(game.state!=="PLAYING")return;
+  const b=game.ball, p=game.paddle;
+
+  if(game.mode==="time"){
+    game.timeLeft-=dt;
+    if(game.timeLeft<=0){game.timeLeft=0; gameOver(true); return;}
+  }
+
+  if(!game.launched){ b.x=p.x+p.w/2; b.y=p.y-b.r-2; updateHUD(); return; }
+
+  // sub-step to avoid tunneling
+  const steps=Math.ceil((Math.hypot(b.vx,b.vy)*dt)/8)||1;
+  const sdt=dt/steps;
+  for(let s=0;s<steps;s++){
+    b.x+=b.vx*sdt; b.y+=b.vy*sdt;
+    // walls
+    if(b.x-b.r<0){b.x=b.r;b.vx=Math.abs(b.vx);}
+    if(b.x+b.r>W){b.x=W-b.r;b.vx=-Math.abs(b.vx);}
+    if(b.y-b.r<0){b.y=b.r;b.vy=Math.abs(b.vy);}
+    // paddle
+    if(b.vy>0 && b.y+b.r>=p.y && b.y-b.r<p.y+p.h && b.x>=p.x-b.r && b.x<=p.x+p.w+b.r){
+      b.y=p.y-b.r;
+      const hit=(b.x-(p.x+p.w/2))/(p.w/2); // -1..1
+      const ang=hit*(Math.PI*0.42);
+      const sp=Math.hypot(b.vx,b.vy);
+      b.vx=Math.sin(ang)*sp; b.vy=-Math.abs(Math.cos(ang)*sp);
+      beep(330,.04,"square",.04);
+    }
+    // bottom — lost just below the paddle (keeps play above the trays)
+    if(b.y-b.r>game.paddle.y+34){ loseLife(); return; }
+    // bricks
+    handleBrickCollision();
+  }
+
+  // particles
+  game.particles.forEach(pt=>{pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vy+=600*dt;pt.life-=dt*1.6;});
+  game.particles=game.particles.filter(pt=>pt.life>0);
+  updateHUD();
+}
+
+function handleBrickCollision(){
+  const b=game.ball;
+  let best=null,bestPen=1e9;
+  for(const br of game.bricks){
+    const cx=clamp(b.x,br.x,br.x+br.w), cy=clamp(b.y,br.y,br.y+br.h);
+    const dx=b.x-cx, dy=b.y-cy;
+    if(dx*dx+dy*dy<=b.r*b.r){
+      const pen=dx*dx+dy*dy;
+      if(pen<bestPen){bestPen=pen;best=br;}
+    }
+  }
+  if(!best)return;
+  // reflect off this brick
+  const br=best;
+  const overlapL=(b.x+b.r)-br.x, overlapR=(br.x+br.w)-(b.x-b.r);
+  const overlapT=(b.y+b.r)-br.y, overlapB=(br.y+br.h)-(b.y-b.r);
+  const minX=Math.min(overlapL,overlapR), minY=Math.min(overlapT,overlapB);
+  if(minX<minY){ b.vx=overlapL<overlapR?-Math.abs(b.vx):Math.abs(b.vx); }
+  else { b.vy=overlapT<overlapB?-Math.abs(b.vy):Math.abs(b.vy); }
+  br.hitT=1;
+
+  // resolve outcome
+  if(br.kind==="cat"){ categoryHit(br); return; }
+  // letter brick
+  const word=br.word;
+  if(br.ansIdx===word.live){ correctHit(word,br); }
+  else { wrongHit(); }
+}
+
+/* ============================================================= *
+ *  RENDER
+ * ============================================================= */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // subtle field border
+  if(game.state==="PLAYING"||game.state==="PAUSED"||game.state==="MEMORIZE"){
+    drawBricks();
+    drawPaddle();
+    drawBall();
+    drawParticles();
+  }
+}
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let C={};
+function refreshColors(){C={fg:css("--fg"),muted:css("--muted"),good:css("--good"),
+  bad:css("--bad"),warn:css("--warn"),accent:css("--accent"),line:css("--line")};}
+refreshColors();
+
+function drawBricks(){
+  for(const br of game.bricks){
+    let fill,stroke,txt=C.fg,glow=false;
+    if(br.kind==="cat"){
+      fill="rgba(124,140,255,.14)"; stroke=C.line;
+    }else{
+      const w=br.word, isLive=br.ansIdx===w.live;
+      if(game.mode==="memory"){ fill=hexA(w.accent,.12); stroke=C.line; txt=C.fg; }
+      else if(isLive){ fill=hexA(w.accent,.30); stroke=w.accent; glow=true; }
+      else { fill="rgba(255,255,255,.06)"; stroke=C.line; txt=C.muted; }
+    }
+    if(br.hitT>0){ fill=hexA(C.bad,.5); stroke=C.bad; br.hitT=Math.max(0,br.hitT-0.08); }
+    ctx.save();
+    if(glow){ctx.shadowColor=br.kind==="cat"?C.accent:br.word.accent;ctx.shadowBlur=16;}
+    ctx.fillStyle=fill; rr(br.x,br.y,br.w,br.h,7); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.lineWidth=glow?2.4:1.2; ctx.strokeStyle=stroke; ctx.stroke();
+    ctx.restore();
+    // label
+    ctx.fillStyle=txt; ctx.textAlign="center"; ctx.textBaseline="middle";
+    if(br.kind==="cat"){
+      ctx.font=`700 ${Math.min(16,br.w/(br.label.length*0.62))}px "Segoe UI",sans-serif`;
+    }else{
+      ctx.font=`800 ${Math.min(22,br.h*0.6)}px "Segoe UI",sans-serif`;
+    }
+    ctx.fillText(br.label,br.x+br.w/2,br.y+br.h/2+1);
+  }
+}
+function activeAccents(){
+  if(game.mode==="category") return [C.accent];
+  const a=game.words.filter(w=>!w.solved).map(w=>w.accent);
+  return a.length?a:[C.accent];
+}
+function drawPaddle(){
+  const p=game.paddle; if(!p)return;
+  const cols=activeAccents();
+  ctx.save();ctx.shadowColor=cols[0];ctx.shadowBlur=14;
+  if(cols.length===1){
+    const g=ctx.createLinearGradient(p.x,0,p.x+p.w,0);
+    g.addColorStop(0,cols[0]);g.addColorStop(1,css("--accent2"));
+    ctx.fillStyle=g; rr(p.x,p.y,p.w,p.h,7);ctx.fill();
+  }else{
+    // one colored segment per active word — guide to where to aim each
+    const seg=p.w/cols.length;
+    for(let i=0;i<cols.length;i++){
+      ctx.fillStyle=cols[i];
+      rr(p.x+i*seg, p.y, seg+(i<cols.length-1?0.5:0), p.h, i===0||i===cols.length-1?7:2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawBall(){
+  const b=game.ball;if(!b)return;
+  ctx.save();ctx.shadowColor=C.warn;ctx.shadowBlur=18;
+  ctx.fillStyle=C.warn;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fill();ctx.restore();
+}
+function drawParticles(){
+  for(const p of game.particles){
+    ctx.globalAlpha=Math.max(0,p.life);
+    ctx.fillStyle=p.color;
+    ctx.fillRect(p.x,p.y,p.size,p.size);
+  }
+  ctx.globalAlpha=1;
+}
+function hexA(h,a){
+  h=h.trim();
+  if(h.startsWith("var")||h.startsWith("rgb"))return h; // fallback
+  let n=h.replace("#","");
+  if(n.length===3)n=n.split("").map(c=>c+c).join("");
+  const r=parseInt(n.slice(0,2),16),g=parseInt(n.slice(2,4),16),b=parseInt(n.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/* ============================================================= *
+ *  HUD
+ * ============================================================= */
+function updateHUD(){
+  $("hScore").textContent=game.score;
+  $("hLevel").textContent=game.level;
+  $("hCombo").textContent="x"+(1+Math.floor(game.combo/3));
+  $("hLives").textContent="♥".repeat(Math.max(0,game.lives));
+  $("modeTag").textContent=MODES[game.mode].name;
+  const tm=$("timer");
+  if(game.mode==="time"){tm.style.display="";$("hTime").textContent=Math.ceil(game.timeLeft);}
+  else tm.style.display="none";
+  $("lives").style.display=game.mode==="time"?"none":"";
+  $("guessBtn").style.display=game.mode==="unscramble"?"":"none";
+}
+
+/* ============================================================= *
+ *  FLOW
+ * ============================================================= */
+function startGame(mode){
+  game.mode=mode; game.level=1; game.score=0;
+  game.lives=diff().lives; game.combo=0; game.maxComboRun=0;
+  game.sessionSolved=0;game.sessionHits=0;game.sessionCorrect=0;
+  game.timeLeft=diff().time;
+  hideOverlays();
+  hud.style.display="flex"; trays.style.display="flex";
+  buildLevel(); updateHUD();
+}
+let _revealTimer=null;
+function showWordReveal(nextFn, isWin=true){
+  if(game.mode!=="unscramble"){ nextFn(); return; }
+  if(_revealTimer){ clearTimeout(_revealTimer); _revealTimer=null; }
+  const words=game.words;
+  const box=$("revealWords");
+  box.innerHTML="";
+  $("revealSub").textContent=isWin
+    ? "Study them before the next level — repetition builds vocabulary!"
+    : "Here's what the wall contained. Remember them next time!";
+  const btn=$("revealContinue");
+  btn.style.opacity="0";
+  btn.onclick=()=>{ clearTimeout(_revealTimer); _revealTimer=null; hideOverlays(); nextFn(); };
+  let totalDelay=0;
+  words.forEach((w,wi)=>{
+    const rowDelay=wi*380+80;
+    const tileDelay=rowDelay+w.answer.length*65+200;
+    totalDelay=Math.max(totalDelay,tileDelay);
+    const row=document.createElement("div");
+    row.className="reveal-word-row";
+    // badge
+    const badge=document.createElement("div");
+    badge.className="reveal-badge";
+    badge.style.color=w.solved?w.accent:"var(--bad)";
+    badge.textContent=w.solved?"✓ Solved":"✗ Missed";
+    row.appendChild(badge);
+    // letter tiles
+    const tiles=document.createElement("div");
+    tiles.className="reveal-tiles";
+    for(let i=0;i<w.answer.length;i++){
+      const t=document.createElement("div");
+      t.className="rtile"+(w.solved?"":" missed");
+      t.textContent=w.answer[i];
+      if(w.solved){
+        t.style.borderColor=w.accent;
+        t.style.background=hexA(w.accent,.18);
+        t.style.boxShadow=`0 0 18px ${hexA(w.accent,.55)}, 0 0 5px ${w.accent} inset`;
+        t.style.color="#fff";
+      }
+      tiles.appendChild(t);
+    }
+    row.appendChild(tiles);
+    // scrambled hint
+    const scr=document.createElement("div");
+    scr.className="reveal-scramble";
+    scr.textContent="Scrambled: "+w.order.map(idx=>w.answer[idx]).join(" ");
+    row.appendChild(scr);
+    box.appendChild(row);
+    // animate in
+    setTimeout(()=>{
+      row.classList.add("show");
+      tiles.querySelectorAll(".rtile").forEach((t,ti)=>{
+        setTimeout(()=>t.classList.add("pop"),ti*65);
+      });
+    }, rowDelay);
+  });
+  // show continue button once all tiles are in
+  setTimeout(()=>{ btn.style.opacity="1"; }, totalDelay);
+  // auto-advance after study time
+  _revealTimer=setTimeout(()=>{ hideOverlays(); nextFn(); }, totalDelay+8000);
+  showOverlay("REVEAL");
+}
+
+function levelComplete(){
+  sLevel();
+  showWordReveal(()=>{
+    game.state="LEVEL";
+    $("lvlNum").textContent=game.level;
+    $("lvlScore").textContent=game.score;
+    $("lvlSub").textContent=`Best combo: x${1+Math.floor(game.maxComboRun/3)}`;
+    showOverlay("LEVEL");
+  }, true);
+}
+function nextLevel(){
+  game.level++; hideOverlays(); buildLevel(); updateHUD();
+}
+function openGuess(){
+  if(game.state!=="PLAYING"||game.mode!=="unscramble")return;
+  game.state="PAUSED";
+  const unsolved=game.words.filter(w=>!w.solved);
+  const multi=unsolved.length>1;
+  $("guessPlural").textContent=multi?"s":"";
+  const box=$("guessInputs");
+  box.innerHTML="";
+  unsolved.forEach((w,i)=>{
+    const scrambled=w.order.map(idx=>w.answer[idx]).join(" ");
+    const div=document.createElement("div");
+    div.style.cssText="margin:12px 0";
+    div.innerHTML=`
+      <div style="color:var(--muted);font-size:11px;letter-spacing:.08em;margin-bottom:5px;text-transform:uppercase">
+        Scrambled &nbsp;<span style="color:var(--accent);font-weight:900;font-size:17px;letter-spacing:.25em">${scrambled}</span>
+      </div>
+      <input data-i="${i}" type="text" maxlength="${w.answer.length}"
+        autocomplete="off" spellcheck="false"
+        placeholder="${"_".repeat(w.answer.length)}"
+        style="width:100%;padding:11px 14px;font-size:22px;font-weight:900;
+          text-transform:uppercase;letter-spacing:.18em;
+          background:rgba(255,255,255,.06);border:1.5px solid var(--line);
+          border-radius:10px;color:var(--fg);outline:none;
+          font-family:inherit;transition:border-color .15s" />`;
+    box.appendChild(div);
+    // highlight border on focus
+    const inp=div.querySelector("input");
+    inp.addEventListener("focus",()=>inp.style.borderColor="var(--accent)");
+    inp.addEventListener("blur", ()=>inp.style.borderColor="var(--line)");
+    inp.addEventListener("keydown",e=>{ if(e.key==="Enter") submitGuess(); });
+  });
+  setTimeout(()=>{ const f=box.querySelector("input"); if(f)f.focus(); },60);
+  showOverlay("GUESS");
+}
+
+function submitGuess(){
+  const unsolved=game.words.filter(w=>!w.solved);
+  const inputs=[...$("guessInputs").querySelectorAll("input")];
+  // tally before applying so we can decide on bonus life
+  let anyCorrect=0, anyWrong=0;
+  inputs.forEach((inp,i)=>{
+    const val=inp.value.trim().toUpperCase();
+    if(!val) return;                          // blank = skip, no penalty
+    if(val===unsolved[i].answer) anyCorrect++;
+    else anyWrong++;
+  });
+  // nothing entered at all — treat as cancel
+  if(anyCorrect===0 && anyWrong===0){
+    hideOverlays(); game.state="PLAYING"; return;
+  }
+  // apply correct guesses
+  inputs.forEach((inp,i)=>{
+    const val=inp.value.trim().toUpperCase();
+    if(!val || val!==unsolved[i].answer) return;
+    const w=unsolved[i];
+    w.solved=true; w.live=w.answer.length;
+    game.sessionSolved++; game.sessionCorrect++;
+    game.score+=40*game.level;
+    game.combo++;
+  });
+  // wrong answers cost a life each
+  if(anyWrong>0){
+    game.lives=Math.max(0,game.lives-anyWrong);
+    game.combo=0;
+    flash("var(--bad)"); sBad();
+  }
+  // bonus life for any correct guess (capped at starting lives + 3)
+  if(anyCorrect>0){
+    game.lives=Math.min(game.lives+1, diff().lives+3);
+    game.maxComboRun=Math.max(game.maxComboRun,game.combo);
+    sLevel();
+  }
+  hideOverlays();
+  game.state="PLAYING";
+  updateTrays(); layout(); updateHUD();
+  if(game.lives<=0){ gameOver(); return; }
+  if(anyCorrect>0) checkWin();
+}
+
+function pause(){
+  game.state="PAUSED";
+  $("pauseSub").textContent=`${MODES[game.mode].name} · Level ${game.level} · Score ${game.score}`;
+  showOverlay("PAUSE");
+}
+function resume(){ hideOverlays(); game.state="PLAYING"; }
+function gameOver(timeUp=false){
+  game.state="OVER"; sOver();
+  stats.played++;
+  stats.high=Math.max(stats.high,game.score);
+  stats.streak=Math.max(stats.streak,game.maxComboRun);
+  stats.solved+=game.sessionSolved;
+  stats.hits+=game.sessionHits;
+  stats.correct+=game.sessionCorrect;
+  saveStats();
+  const _showOver=()=>{
+    $("overSub").textContent= timeUp
+      ? `Time! You solved ${game.sessionSolved} words in ${MODES[game.mode].name}.`
+      : `${MODES[game.mode].name} · reached Level ${game.level}`;
+    $("overScore").textContent=game.score;
+    $("overBest").textContent = game.score>=stats.high && game.score>0
+      ? "🏆 New high score!" : `Best: ${stats.high}`;
+    hud.style.display="none"; trays.style.display="none";
+    showOverlay("OVER");
+  };
+  showWordReveal(_showOver, false);
+}
+function quitToMenu(){
+  game.state="MENU"; hud.style.display="none"; trays.style.display="none";
+  showOverlay("MENU");
+}
+
+/* ============================================================= *
+ *  UI WIRING
+ * ============================================================= */
+$("btnPlay").onclick=()=>startGame("unscramble");
+$("btnModes").onclick=()=>{buildModeButtons();showOverlay("MODES");};
+$("modesBack").onclick=()=>showOverlay("MENU");
+$("btnStats").onclick=()=>{renderStats();showOverlay("STATS");};
+$("btnSettings").onclick=()=>{renderSettings();showOverlay("SETTINGS");};
+$("setBack").onclick=()=>showOverlay("MENU");
+$("statsBack").onclick=()=>showOverlay("MENU");
+$("statsReset").onclick=()=>{stats={high:0,streak:0,solved:0,hits:0,correct:0,played:0};saveStats();renderStats();};
+$("pauseBtn").onclick=()=>{if(game.state==="PLAYING")pause();};
+$("guessBtn").onclick=openGuess;
+$("guessCancel").onclick=()=>{ hideOverlays(); game.state="PLAYING"; };
+$("guessSubmit").onclick=submitGuess;
+$("btnResume").onclick=resume;
+$("btnRestart").onclick=()=>{hideOverlays();buildLevel();updateHUD();};
+$("btnQuit").onclick=quitToMenu;
+$("btnNext").onclick=nextLevel;
+$("btnLvlQuit").onclick=quitToMenu;
+$("btnAgain").onclick=()=>startGame(game.mode);
+$("btnOverQuit").onclick=quitToMenu;
+
+function buildModeButtons(){
+  const box=$("modeBtns");box.innerHTML="";
+  Object.entries(MODES).forEach(([k,m])=>{
+    const b=document.createElement("button");b.className="btn"+(k==="unscramble"?" primary":"");
+    b.innerHTML=`${m.name}<span class="d">${m.desc}</span>`;
+    b.onclick=()=>startGame(k);
+    box.appendChild(b);
+  });
+}
+function renderSettings(){
+  segSet("segDiff",cfg.diff,v=>{cfg.diff=v;saveCfg();});
+  segSet("segSound",cfg.sound,v=>{cfg.sound=v;saveCfg();});
+  segSet("segTheme",cfg.theme,v=>{cfg.theme=v;saveCfg();applyTheme();refreshColors();});
+}
+function segSet(id,val,cb){
+  const seg=$(id);
+  [...seg.children].forEach(btn=>{
+    btn.classList.toggle("on",btn.dataset.v===val);
+    btn.onclick=()=>{cb(btn.dataset.v);[...seg.children].forEach(x=>x.classList.toggle("on",x===btn));};
+  });
+}
+function renderStats(){
+  const acc=stats.hits?Math.round(stats.correct/stats.hits*100):0;
+  const g=$("statsGrid");
+  const items=[["High Score",stats.high],["Best Combo","x"+(1+Math.floor(stats.streak/3))],
+    ["Words Solved",stats.solved],["Accuracy",acc+"%"],
+    ["Games Played",stats.played],["Total Hits",stats.hits]];
+  g.innerHTML=items.map(([k,v])=>`<div class="statbox"><small>${k}</small><b>${v}</b></div>`).join("");
+}
+
+/* ============================================================= *
+ *  MAIN LOOP
+ * ============================================================= */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
