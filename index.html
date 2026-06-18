@@ -35,7 +35,7 @@
   #modeTag{padding:4px 10px;border:1px solid var(--line);border-radius:999px;
     font-size:12px;color:var(--accent);background:var(--panel)}
   #pauseBtn{pointer-events:auto;cursor:pointer}
-  #guessBtn{pointer-events:auto!important;cursor:pointer!important}
+  #guessBtn,#hintBtn{pointer-events:auto!important;cursor:pointer!important}
 
   /* ---------- Trays ---------- */
   #trays{position:absolute;left:0;right:0;bottom:8px;display:flex;flex-wrap:wrap;
@@ -51,8 +51,12 @@
   .slot.next{box-shadow:0 0 0 2px var(--warn) inset, 0 0 10px var(--warn);
     animation:pulse 1s ease-in-out infinite}
   .slot.done{background:rgba(70,224,138,.18);border-color:var(--good)}
+  .slot.hint{color:var(--warn);background:rgba(255,209,102,.12);border-color:var(--warn);font-style:italic}
   @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.5)}}
   .tray.solved{opacity:.55}
+  .tray.missed{opacity:.5}
+  .tray.missed .dot{background:var(--bad)!important}
+  .tray .strk{font-size:11px;font-weight:800;color:var(--bad);letter-spacing:1px;min-width:0}
   .tray .cat{font-weight:800;font-size:13px}
   .tray .cnt{font-size:12px;color:var(--muted)}
 
@@ -130,6 +134,9 @@
     <div class="stat" id="timer" style="display:none"><small>Time</small><b id="hTime">--</b></div>
     <div class="spacer"></div>
     <div id="modeTag">Unscramble</div>
+    <button id="hintBtn" style="display:none;
+      border:1px solid var(--accent);background:rgba(54,224,200,.12);color:var(--accent);
+      font-weight:800;font-size:13px;padding:5px 12px;border-radius:10px">💡 Hint <kbd style="font-size:10px;opacity:.7">H</kbd></button>
     <button id="guessBtn" style="display:none;
       border:1px solid var(--warn);background:rgba(255,209,102,.12);color:var(--warn);
       font-weight:800;font-size:13px;padding:5px 12px;border-radius:10px">🧠 Guess <kbd style="font-size:10px;opacity:.7">G</kbd></button>
@@ -152,7 +159,7 @@
         <button class="btn ghost" id="btnStats">📊 Stats</button>
         <button class="btn ghost" id="btnSettings">⚙ Settings</button>
       </div>
-      <p class="hintline">Move: <kbd>mouse</kbd>/<kbd>drag</kbd> · Launch: <kbd>Space</kbd>/<kbd>click</kbd> · Pause: <kbd>Esc</kbd></p>
+      <p class="hintline">Move: <kbd>mouse</kbd> or <kbd>←</kbd><kbd>→</kbd> · Launch: <kbd>Space</kbd>/<kbd>click</kbd> · Pause: <kbd>Esc</kbd></p>
     </div>
   </div>
 
@@ -179,6 +186,15 @@
         <div class="seg" id="segSound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
       <div class="setline"><span>High contrast</span>
         <div class="seg" id="segTheme"><button data-v="normal">Normal</button><button data-v="hi">High</button></div></div>
+      <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
+        <h3 style="font-size:13px;font-weight:800;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px">🎮 Gaming Tips</h3>
+        <p style="font-size:12px;color:var(--muted);line-height:1.5;margin:0">
+          <b>Paddle blocked by notifications?</b><br>
+          Enable Windows Focus Assist to silence notifications during play:<br><br>
+          <strong>Quick:</strong> Press <kbd>Win + A</kbd> → Focus Assist → "Alarms only"<br><br>
+          <strong>Permanent:</strong> Settings → System → Focus Assist → Turn on
+        </p>
+      </div>
       <button class="btn primary" id="setBack" style="margin-top:16px">Done</button>
     </div>
   </div>
@@ -223,7 +239,30 @@
     <div class="card" style="max-width:600px;text-align:center">
       <h2 class="title" style="font-size:24px">The Words <span class="a">Were…</span></h2>
       <p class="sub" id="revealSub"></p><div id="revealWords"></div>
-      <button class="btn primary" id="revealContinue" style="margin-top:18px;opacity:0;transition:opacity .4s .1s">Continue →</button>
+      <div style="text-align:center;margin:18px 0;font-weight:800;font-size:18px;color:var(--accent)">
+        <span id="revealTimer">8 seconds to next level</span>
+      </div>
+      <button class="btn primary" id="revealContinue" style="margin-top:12px;opacity:0;transition:opacity .4s .1s">Continue →</button>
+    </div>
+  </div>
+
+  <!-- FINAL (forced) GUESS on lockdown -->
+  <div class="overlay" id="ovFinal">
+    <div class="card center">
+      <h2 class="title" style="font-size:23px" id="finalTitle">🔒 Word Locked!</h2>
+      <p class="sub" id="finalSub">Too many wrong hits. Type the word to clear it — a wrong answer costs a life.</p>
+      <div id="finalScramble" style="color:var(--accent);font-weight:900;font-size:24px;letter-spacing:.35em;margin:6px 0 14px"></div>
+      <input id="finalInput" type="text" autocomplete="off" spellcheck="false"
+        style="width:100%;padding:12px 14px;font-size:24px;font-weight:900;text-align:center;
+          text-transform:uppercase;letter-spacing:.2em;background:rgba(255,255,255,.06);
+          border:1.5px solid var(--warn);border-radius:10px;color:var(--fg);outline:none;font-family:inherit" />
+      <div id="finalReveal" style="display:none;font-size:34px;font-weight:900;letter-spacing:.2em;
+        color:var(--bad);margin:6px 0 4px"></div>
+      <div style="text-align:center;margin:12px 0;font-weight:800;font-size:14px;color:var(--accent)" id="finalTimerDiv">
+        <span id="finalTimer">8 seconds to submit</span>
+      </div>
+      <button class="btn primary" id="finalSubmit" style="margin-top:12px">✓ Submit</button>
+      <button class="btn primary" id="finalContinue" style="margin-top:16px;display:none">Continue →</button>
     </div>
   </div>
 
@@ -234,6 +273,9 @@
       <p class="sub">Guess the words you know — <b>leave others blank to skip them</b>.<br>
         <span style="color:var(--good);font-weight:700">✓ Any correct guess earns a bonus life.</span>
         &nbsp;<span style="color:var(--bad);font-weight:700">✗ Wrong answers cost a life each.</span></p>
+      <div style="text-align:center;margin:8px 0;font-weight:800;font-size:18px">
+        <span id="guessTimer" style="color:var(--warn)">8s</span>
+      </div>
       <div id="guessInputs"></div>
       <div class="row2" style="margin-top:16px">
         <button class="btn ghost" id="guessCancel">Cancel</button>
@@ -340,7 +382,8 @@ const game={
   words:[], bricks:[], particles:[],
   ball:null, paddle:null, launched:false,
   timeLeft:0, sessionSolved:0, sessionHits:0, sessionCorrect:0,
-  flashColor:null
+  flashColor:null,
+  arrowLeft:false, arrowRight:false  // arrow key state for continuous paddle movement
 };
 const DIFF={
   easy  :{speed:300,minLen:3,maxLen:5,lives:4,time:75},
@@ -348,18 +391,37 @@ const DIFF={
   hard  :{speed:430,minLen:4,maxLen:7,lives:2,time:45}
 };
 const MODES={
-  unscramble:{name:"Unscramble",desc:"Smash letters in spelling order"},
+  unscramble:{name:"Unscramble",desc:"Work out each word, break its letters in order"},
   memory    :{name:"Memory",    desc:"Word flashes, then recall the order"},
   category  :{name:"Category",  desc:"Break only words that fit the topic"},
   time      :{name:"Time Attack",desc:"Clear as many words as the clock allows"}
 };
+// Unscramble: wrong letter-hits allowed per word before it locks (forces a final typed guess)
+const STRIKES={easy:5,normal:4,hard:3};
+function maxStrikes(){return STRIKES[cfg.diff]||4;}
+// Unscramble: easy difficulty glows the next letter to break; normal/hard hide it (true deduction)
+function assistGlow(){return game.mode==="time" || (game.mode==="unscramble" && cfg.diff==="easy");}
+// Aim guide: strong early, fades by level. Returns {line, marker, frac}.
+//  line  = draw the predicted ball trajectory; frac = how much of it (1 = full, <1 = short stub)
+//  marker= highlight the correct next letter to aim at (early-round training wheel)
+function aimTier(){
+  if(game.mode!=="unscramble") return {line:false,marker:false,frac:0};
+  const L=game.level, d=cfg.diff;
+  let full=2, lineOnly=4, stub=6;                 // normal thresholds (level <= X)
+  if(d==="easy"){ full=4; lineOnly=8; stub=12; }
+  if(d==="hard"){ full=1; lineOnly=2; stub=3; }
+  if(L<=full)     return {line:true, marker:true,  frac:1};
+  if(L<=lineOnly) return {line:true, marker:false, frac:1};
+  if(L<=stub)     return {line:true, marker:false, frac:0.4};
+  return {line:false, marker:false, frac:0};
+}
 
 /* ---------- DOM refs ---------- */
 const $=id=>document.getElementById(id);
 const hud=$("hud"), trays=$("trays");
 const overlays={MENU:$("ovMenu"),MODES:$("ovModes"),SETTINGS:$("ovSettings"),
   STATS:$("ovStats"),PAUSE:$("ovPause"),LEVEL:$("ovLevel"),OVER:$("ovOver"),
-  GUESS:$("ovGuess"),REVEAL:$("ovReveal")};
+  GUESS:$("ovGuess"),REVEAL:$("ovReveal"),FINAL:$("ovFinal")};
 function hideOverlays(){Object.values(overlays).forEach(o=>o.classList.remove("show"));}
 function showOverlay(k){hideOverlays();if(overlays[k])overlays[k].classList.add("show");}
 
@@ -386,7 +448,8 @@ function buildLevel(){
       do{w=pick(bank).toUpperCase();t++;}while(used.has(w)&&t<30);
       used.add(w);
       const order=scrambleOrder(w.length);
-      game.words.push({answer:w, order, live:0, solved:false,
+      game.words.push({answer:w, order, live:0, solved:false, missed:false,
+        strikes:0, hint:0, locked:false,
         accent:ACCENTS[i%ACCENTS.length], cat:null});
     }
   }
@@ -421,6 +484,7 @@ function resetBall(){
   game.ball={x:game.paddle.x+game.paddle.w/2, y:game.paddle.y-12, r:8,
     vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, speed:sp};
   game.launched=false;
+  game.shotJudged=false;   // committed-shot: has the first brick of this flight been judged?
 }
 
 /* ---------- Layout bricks for current canvas size ---------- */
@@ -459,7 +523,7 @@ function layout(){
   const startY=topPad+Math.max(0,(region-(rows*rowH+(rows-1)*rowGap))/2);
   game.bricks=[];
   game.words.forEach((word,ri)=>{
-    if(word.solved)return;
+    if(word.solved||word.missed)return;
     const n=word.answer.length;
     const gap=8;
     const bw=Math.min(54,(W-40-gap*(n-1))/n);
@@ -493,7 +557,7 @@ function buildTrays(){
     const t=document.createElement("div");t.className="tray";t.dataset.i=i;
     let slots="";
     for(let k=0;k<w.answer.length;k++) slots+=`<div class="slot empty">${w.answer[k]}</div>`;
-    t.innerHTML=`<span class="dot" style="background:${w.accent}"></span><div class="slots">${slots}</div>`;
+    t.innerHTML=`<span class="dot" style="background:${w.accent}"></span><div class="slots">${slots}</div><span class="strk"></span>`;
     trays.appendChild(t);
   });
   updateTrays();
@@ -504,17 +568,29 @@ function updateTrays(){
     if(c)c.textContent=`${game.category.total-game.category.broken} left`;
     return;
   }
+  const showLetter=assistGlow(); // easy unscramble / time reveal which letter is next
   [...trays.children].forEach(t=>{
     const w=game.words[+t.dataset.i]; if(!w)return;
-    t.classList.toggle("solved",w.solved);
+    t.classList.toggle("solved",w.solved&&!w.missed);
+    t.classList.toggle("missed",!!w.missed);
     const slots=t.querySelectorAll(".slot");
     slots.forEach((s,k)=>{
       s.className="slot";
-      if(k<w.live){s.classList.add("done");s.textContent=w.answer[k];}
-      else if(k===w.live && game.mode!=="memory"){s.classList.add("next");s.textContent="?";}
-      else if(k===w.live && game.mode==="memory"){s.classList.add("next");s.textContent="";s.classList.add("empty");}
-      else{s.classList.add("empty");s.textContent=w.answer[k];}
+      if(k<w.live){ s.classList.add("done"); s.textContent=w.answer[k]; }
+      else if(k<w.hint){ s.classList.add("hint"); s.textContent=w.answer[k]; }  // paid-for hint letter
+      else if(k===w.live){
+        s.classList.add("next");
+        if(showLetter && game.mode!=="memory"){ s.textContent="?"; }
+        else { s.textContent=""; s.classList.add("empty"); }
+      }
+      else { s.classList.add("empty"); s.textContent=w.answer[k]; }
     });
+    // strike counter (unscramble only)
+    const strk=t.querySelector(".strk");
+    if(strk){
+      strk.textContent = (game.mode==="unscramble" && w.strikes>0 && !w.solved && !w.missed)
+        ? "✗".repeat(w.strikes)+`/${maxStrikes()}` : "";
+    }
   });
 }
 
@@ -543,16 +619,26 @@ cv.addEventListener("touchmove",e=>{e.preventDefault();movePaddleTo(e.touches[0]
 cv.addEventListener("touchstart",e=>{movePaddleTo(e.touches[0].clientX);launch();},{passive:false});
 cv.addEventListener("mousedown",launch);
 function launch(){
-  if(game.state==="PLAYING"&&!game.launched){game.launched=true;}
+  if(game.state==="PLAYING"&&!game.launched){game.launched=true;game.shotJudged=false;}
 }
 window.addEventListener("keydown",e=>{
+  // arrow keys for paddle movement (always work, don't check INPUT because arrows aren't typing)
+  if(e.code==="ArrowLeft"){ e.preventDefault(); game.arrowLeft=true; return; }
+  if(e.code==="ArrowRight"){ e.preventDefault(); game.arrowRight=true; return; }
+  // don't hijack typing in the guess / final-guess input fields
+  if(e.target && e.target.tagName==="INPUT") return;
   if(e.code==="Space"){e.preventDefault();
     if(game.state==="PLAYING")launch(); }
   if(e.code==="Escape"||e.key==="p"||e.key==="P"){
     if(game.state==="PLAYING")pause();
     else if(game.state==="PAUSED")resume();
   }
-  if(e.key==="g"||e.key==="G"){ openGuess(); }
+  if((e.key==="g"||e.key==="G") && game.state==="PLAYING"){ openGuess(); }
+  if((e.key==="h"||e.key==="H") && game.state==="PLAYING"){ useHint(); }
+});
+window.addEventListener("keyup",e=>{
+  if(e.code==="ArrowLeft"){ game.arrowLeft=false; }
+  if(e.code==="ArrowRight"){ game.arrowRight=false; }
 });
 
 /* ============================================================= *
@@ -578,12 +664,17 @@ function correctHit(word,brick){
   layout(); // remove broken bricks
   checkWin();
 }
-function wrongHit(){
+function wrongHit(word){
   game.combo=0;
   game.sessionHits++;
   flash("var(--bad)");
   sBad();
-  updateHUD();
+  // Unscramble: wrong letters accrue strikes; too many locks the word into a forced final guess
+  if(game.mode==="unscramble" && word && !word.solved && !word.missed && !word.locked){
+    word.strikes++;
+    if(word.strikes>=maxStrikes()){ lockWord(word); }
+  }
+  updateHUD(); updateTrays();
 }
 function categoryHit(brick){
   game.sessionHits++;
@@ -606,7 +697,7 @@ function categoryHit(brick){
 function checkWin(){
   let done;
   if(game.mode==="category"){ done=game.category.broken>=game.category.total; }
-  else { done=game.words.every(w=>w.solved); }
+  else { done=game.words.every(w=>w.solved||w.missed); }
   if(done){
     if(game.mode==="time"){ game.level++; buildLevel(); updateHUD(); } // next wave, keep clock
     else levelComplete();
@@ -642,6 +733,12 @@ function update(dt){
   if(game.state!=="PLAYING")return;
   const b=game.ball, p=game.paddle;
 
+  // arrow key paddle movement (smooth, pixel-per-frame based on speed)
+  if(game.arrowLeft){ p.x=Math.max(0,p.x-240*dt); }
+  if(game.arrowRight){ p.x=Math.min(W-p.w,p.x+240*dt); }
+  // keep ball centered on paddle if not yet launched
+  if(!game.launched){ b.x=p.x+p.w/2; }
+
   if(game.mode==="time"){
     game.timeLeft-=dt;
     if(game.timeLeft<=0){game.timeLeft=0; gameOver(true); return;}
@@ -665,12 +762,15 @@ function update(dt){
       const ang=hit*(Math.PI*0.42);
       const sp=Math.hypot(b.vx,b.vy);
       b.vx=Math.sin(ang)*sp; b.vy=-Math.abs(Math.cos(ang)*sp);
+      game.shotJudged=false;   // new flight off the paddle — next brick is the committed shot
       beep(330,.04,"square",.04);
     }
     // bottom — lost just below the paddle (keeps play above the trays)
     if(b.y-b.r>game.paddle.y+34){ loseLife(); return; }
     // bricks
     handleBrickCollision();
+    // a hit may have locked a word / cleared the level / ended the game — stop stepping
+    if(game.state!=="PLAYING") return;
   }
 
   // particles
@@ -704,8 +804,17 @@ function handleBrickCollision(){
   if(br.kind==="cat"){ categoryHit(br); return; }
   // letter brick
   const word=br.word;
-  if(br.ansIdx===word.live){ correctHit(word,br); }
-  else { wrongHit(); }
+  if(br.ansIdx===word.live){
+    correctHit(word,br);            // correct letters always break (chain multiple per flight)
+    game.shotJudged=true;
+  } else if(game.mode==="unscramble"){
+    // committed-shot rule: only the FIRST brick after the paddle is judged for a strike
+    if(!game.shotJudged){ wrongHit(word); }   // bad aimed shot → strike
+    // else: incidental ricochet — bounce only, no penalty
+    game.shotJudged=true;
+  } else {
+    wrongHit(word);                 // memory/time: existing behaviour (combo reset, no strike)
+  }
 }
 
 /* ============================================================= *
@@ -716,9 +825,90 @@ function render(){
   // subtle field border
   if(game.state==="PLAYING"||game.state==="PAUSED"||game.state==="MEMORIZE"){
     drawBricks();
+    drawAimGuide();
     drawPaddle();
     drawBall();
     drawParticles();
+  }
+}
+
+/* ---------- Aim guide (predicted trajectory + target marker) ---------- */
+function hitsBrickAt(x,y,r){
+  for(const br of game.bricks){
+    const cx=clamp(x,br.x,br.x+br.w), cy=clamp(y,br.y,br.y+br.h);
+    const dx=x-cx, dy=y-cy;
+    if(dx*dx+dy*dy<=r*r) return true;
+  }
+  return false;
+}
+// Simulate the ball's path (reflecting off walls + the paddle for its CURRENT position),
+// stopping at the first brick it would strike (the committed shot) or when it falls past the paddle.
+function predictPath(){
+  const b=game.ball, p=game.paddle, r=b.r;
+  let x=b.x, y=b.y, vx=b.vx, vy=b.vy;   // pre-launch uses the ball's set launch velocity
+  const pts=[{x,y}];
+  const dt=0.012; let bounces=0;
+  for(let i=0;i<500 && pts.length<80;i++){
+    x+=vx*dt; y+=vy*dt;
+    if(x-r<0){x=r;vx=Math.abs(vx);pts.push({x,y});if(++bounces>4)break;}
+    else if(x+r>W){x=W-r;vx=-Math.abs(vx);pts.push({x,y});if(++bounces>4)break;}
+    if(y-r<0){y=r;vy=Math.abs(vy);pts.push({x,y});if(++bounces>4)break;}
+    // paddle deflection for current paddle position
+    if(vy>0 && y+r>=p.y && y-r<p.y+p.h && x>=p.x-r && x<=p.x+p.w+r){
+      y=p.y-r;
+      const hit=clamp((x-(p.x+p.w/2))/(p.w/2),-1,1);
+      const ang=hit*(Math.PI*0.42), sp=Math.hypot(vx,vy);
+      vx=Math.sin(ang)*sp; vy=-Math.abs(Math.cos(ang)*sp);
+      pts.push({x,y}); if(++bounces>4)break;
+    }
+    if(hitsBrickAt(x,y,r)){ pts.push({x,y}); break; }       // committed shot lands here
+    if(y-r>p.y+40){ pts.push({x,y}); break; }               // lost below paddle
+  }
+  return pts;
+}
+function drawAimGuide(){
+  const tier=aimTier();
+  if(tier.line && game.ball){
+    const pts=predictPath();
+    // shorten the line for the "stub" tier by trimming total drawn length
+    let maxLen=Infinity;
+    if(tier.frac<1){
+      let total=0; for(let i=1;i<pts.length;i++) total+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+      maxLen=total*tier.frac;
+    }
+    ctx.save();
+    ctx.setLineDash([7,9]); ctx.lineWidth=2; ctx.lineCap="round";
+    ctx.strokeStyle=hexA(C.accent,.55); ctx.shadowColor=C.accent; ctx.shadowBlur=6;
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    let drawn=0;
+    for(let i=1;i<pts.length;i++){
+      const seg=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+      if(drawn+seg>maxLen){
+        const t=(maxLen-drawn)/seg;
+        ctx.lineTo(pts[i-1].x+(pts[i].x-pts[i-1].x)*t, pts[i-1].y+(pts[i].y-pts[i-1].y)*t);
+        break;
+      }
+      ctx.lineTo(pts[i].x,pts[i].y); drawn+=seg;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  if(tier.marker){
+    // ring the correct next letter of each unsolved word
+    const t=performance.now()/400;
+    const pulse=1+Math.sin(t)*0.12;
+    for(const br of game.bricks){
+      if(br.kind!=="letter" || br.ansIdx!==br.word.live) continue;
+      ctx.save();
+      ctx.strokeStyle=br.word.accent; ctx.lineWidth=3; ctx.shadowColor=br.word.accent; ctx.shadowBlur=12;
+      const pad=4*pulse;
+      rr(br.x-pad,br.y-pad,br.w+pad*2,br.h+pad*2,9); ctx.stroke();
+      // little downward chevron above it
+      const cx=br.x+br.w/2, cy=br.y-pad-7;
+      ctx.beginPath();ctx.moveTo(cx-6,cy-6);ctx.lineTo(cx,cy);ctx.lineTo(cx+6,cy-6);
+      ctx.lineWidth=3;ctx.stroke();
+      ctx.restore();
+    }
   }
 }
 function rr(x,y,w,h,r){
@@ -739,8 +929,10 @@ function drawBricks(){
       fill="rgba(124,140,255,.14)"; stroke=C.line;
     }else{
       const w=br.word, isLive=br.ansIdx===w.live;
-      if(game.mode==="memory"){ fill=hexA(w.accent,.12); stroke=C.line; txt=C.fg; }
-      else if(isLive){ fill=hexA(w.accent,.30); stroke=w.accent; glow=true; }
+      // deduce mode = letters shown clearly, no glow telling you which is next
+      const deduce=(game.mode==="memory")||(game.mode==="unscramble"&&!assistGlow());
+      if(isLive && assistGlow()){ fill=hexA(w.accent,.30); stroke=w.accent; glow=true; }
+      else if(deduce){ fill=hexA(w.accent,.12); stroke=C.line; txt=C.fg; }
       else { fill="rgba(255,255,255,.06)"; stroke=C.line; txt=C.muted; }
     }
     if(br.hitT>0){ fill=hexA(C.bad,.5); stroke=C.bad; br.hitT=Math.max(0,br.hitT-0.08); }
@@ -762,7 +954,7 @@ function drawBricks(){
 }
 function activeAccents(){
   if(game.mode==="category") return [C.accent];
-  const a=game.words.filter(w=>!w.solved).map(w=>w.accent);
+  const a=game.words.filter(w=>!w.solved&&!w.missed).map(w=>w.accent);
   return a.length?a:[C.accent];
 }
 function drawPaddle(){
@@ -820,6 +1012,7 @@ function updateHUD(){
   else tm.style.display="none";
   $("lives").style.display=game.mode==="time"?"none":"";
   $("guessBtn").style.display=game.mode==="unscramble"?"":"none";
+  $("hintBtn").style.display=game.mode==="unscramble"?"":"none";
 }
 
 /* ============================================================= *
@@ -829,7 +1022,7 @@ function startGame(mode){
   game.mode=mode; game.level=1; game.score=0;
   game.lives=diff().lives; game.combo=0; game.maxComboRun=0;
   game.sessionSolved=0;game.sessionHits=0;game.sessionCorrect=0;
-  game.timeLeft=diff().time;
+  game.timeLeft=diff().time; game.hintsUsed=0;
   hideOverlays();
   hud.style.display="flex"; trays.style.display="flex";
   buildLevel(); updateHUD();
@@ -852,22 +1045,23 @@ function showWordReveal(nextFn, isWin=true){
     const rowDelay=wi*380+80;
     const tileDelay=rowDelay+w.answer.length*65+200;
     totalDelay=Math.max(totalDelay,tileDelay);
+    const ok=w.solved&&!w.missed;
     const row=document.createElement("div");
     row.className="reveal-word-row";
     // badge
     const badge=document.createElement("div");
     badge.className="reveal-badge";
-    badge.style.color=w.solved?w.accent:"var(--bad)";
-    badge.textContent=w.solved?"✓ Solved":"✗ Missed";
+    badge.style.color=ok?w.accent:"var(--bad)";
+    badge.textContent=ok?"✓ Solved":"✗ Missed";
     row.appendChild(badge);
     // letter tiles
     const tiles=document.createElement("div");
     tiles.className="reveal-tiles";
     for(let i=0;i<w.answer.length;i++){
       const t=document.createElement("div");
-      t.className="rtile"+(w.solved?"":" missed");
+      t.className="rtile"+(ok?"":" missed");
       t.textContent=w.answer[i];
-      if(w.solved){
+      if(ok){
         t.style.borderColor=w.accent;
         t.style.background=hexA(w.accent,.18);
         t.style.boxShadow=`0 0 18px ${hexA(w.accent,.55)}, 0 0 5px ${w.accent} inset`;
@@ -892,12 +1086,23 @@ function showWordReveal(nextFn, isWin=true){
   });
   // show continue button once all tiles are in
   setTimeout(()=>{ btn.style.opacity="1"; }, totalDelay);
+  // countdown timer during reveal
+  let revealTimeLeft=8;
+  const updateRevealTimer=()=>{
+    $("revealTimer").textContent=revealTimeLeft+(revealTimeLeft===1?" second":" seconds")+" to next level";
+    revealTimeLeft--;
+    if(revealTimeLeft>=0){
+      setTimeout(updateRevealTimer,1000);
+    }
+  };
+  setTimeout(updateRevealTimer, totalDelay);  // start countdown when tiles finish
   // auto-advance after study time
   _revealTimer=setTimeout(()=>{ hideOverlays(); nextFn(); }, totalDelay+8000);
   showOverlay("REVEAL");
 }
 
 function levelComplete(){
+  game.state="LEVEL";   // stop physics immediately so the ball can't move during the reveal
   sLevel();
   showWordReveal(()=>{
     game.state="LEVEL";
@@ -912,8 +1117,9 @@ function nextLevel(){
 }
 function openGuess(){
   if(game.state!=="PLAYING"||game.mode!=="unscramble")return;
+  const unsolved=game.words.filter(w=>!w.solved&&!w.missed);
+  if(!unsolved.length)return;
   game.state="PAUSED";
-  const unsolved=game.words.filter(w=>!w.solved);
   const multi=unsolved.length>1;
   $("guessPlural").textContent=multi?"s":"";
   const box=$("guessInputs");
@@ -942,11 +1148,27 @@ function openGuess(){
     inp.addEventListener("keydown",e=>{ if(e.key==="Enter") submitGuess(); });
   });
   setTimeout(()=>{ const f=box.querySelector("input"); if(f)f.focus(); },60);
+  // 8-second timer — robust restart
+  if(_guessTimer){ clearTimeout(_guessTimer); _guessTimer=null; }
+  $("guessTimer").textContent="8s";   // explicitly reset display
+  let timeLeft=8;
+  const updateTimer=()=>{
+    $("guessTimer").textContent=timeLeft+"s";
+    if(timeLeft<=0){
+      _guessTimer=null;
+      submitGuess();  // auto-submit on timeout
+    }else{
+      timeLeft--;
+      _guessTimer=setTimeout(updateTimer,1000);
+    }
+  };
+  _guessTimer=setTimeout(updateTimer,1000);  // schedule first tick (not immediate, so display can settle)
   showOverlay("GUESS");
 }
 
 function submitGuess(){
-  const unsolved=game.words.filter(w=>!w.solved);
+  if(_guessTimer){ clearTimeout(_guessTimer); _guessTimer=null; }
+  const unsolved=game.words.filter(w=>!w.solved&&!w.missed);
   const inputs=[...$("guessInputs").querySelectorAll("input")];
   // tally before applying so we can decide on bonus life
   let anyCorrect=0, anyWrong=0;
@@ -987,6 +1209,89 @@ function submitGuess(){
   updateTrays(); layout(); updateHUD();
   if(game.lives<=0){ gameOver(); return; }
   if(anyCorrect>0) checkWin();
+}
+
+/* ---------- Strikes → forced final guess (Unscramble) ---------- */
+let _finalWord=null, _guessTimer=null, _finalTimer=null;
+function lockWord(word){
+  word.locked=true;
+  game.state="PAUSED";
+  _finalWord=word;
+  $("finalTitle").textContent="🔒 Word Locked!";
+  $("finalSub").textContent="Too many wrong hits. Type the word to clear it — a wrong answer costs a life.";
+  const sc=$("finalScramble"); sc.style.display=""; sc.textContent=word.order.map(i=>word.answer[i]).join(" ");
+  const inp=$("finalInput"); inp.style.display=""; inp.value=""; inp.maxLength=word.answer.length;
+  $("finalReveal").style.display="none";
+  $("finalSubmit").style.display=""; $("finalContinue").style.display="none";
+  sLife();
+  // 8-second timer for final guess
+  if(_finalTimer){ clearTimeout(_finalTimer); _finalTimer=null; }
+  $("finalTimer").textContent="8 seconds to submit";
+  let timeLeft=8;
+  const updateFinalTimer=()=>{
+    $("finalTimer").textContent=timeLeft+(timeLeft===1?" second":" seconds")+" to submit";
+    if(timeLeft<=0){
+      _finalTimer=null;
+      submitFinal();  // auto-submit on timeout
+    }else{
+      timeLeft--;
+      _finalTimer=setTimeout(updateFinalTimer,1000);
+    }
+  };
+  _finalTimer=setTimeout(updateFinalTimer,1000);  // schedule first tick
+  showOverlay("FINAL");
+  setTimeout(()=>inp.focus(),60);
+}
+function submitFinal(){
+  if(_finalTimer){ clearTimeout(_finalTimer); _finalTimer=null; }
+  const word=_finalWord; if(!word)return;
+  const val=$("finalInput").value.trim().toUpperCase();
+  if(val===word.answer){
+    word.solved=true; word.live=word.answer.length;
+    game.sessionSolved++; game.sessionCorrect++;
+    game.score+=15*game.level;            // partial reward (less than breaking it out)
+    sGood();
+    finishFinal();
+  }else{
+    word.missed=true;                     // word is lost (counts as done, shown red at reveal)
+    game.lives--; game.combo=0;
+    sBad(); flash("var(--bad)");
+    // teach the answer before moving on
+    $("finalTitle").textContent="✗ Not this time";
+    $("finalSub").textContent="You lost a life. Learn it for next time:";
+    $("finalScramble").style.display="none";
+    $("finalInput").style.display="none";
+    const rv=$("finalReveal"); rv.style.display=""; rv.textContent=word.answer;
+    $("finalSubmit").style.display="none"; $("finalContinue").style.display="";
+    updateHUD();
+  }
+}
+function finishFinal(){
+  if(_finalTimer){ clearTimeout(_finalTimer); _finalTimer=null; }
+  const word=_finalWord; _finalWord=null;
+  if(word) word.locked=false;
+  hideOverlays();
+  updateTrays(); layout(); updateHUD();
+  if(game.lives<=0){ gameOver(); return; }
+  game.state="PLAYING"; resetBall();
+  checkWin();
+}
+
+/* ---------- Hint (costs points) ---------- */
+function useHint(){
+  if(game.state!=="PLAYING"||game.mode!=="unscramble")return;
+  const active=game.words.filter(w=>!w.solved&&!w.missed);
+  if(!active.length)return;
+  // reveal one more leading letter on each active word
+  const canReveal=active.some(w=>w.hint<w.answer.length);
+  if(!canReveal)return;
+  game.hintsUsed=(game.hintsUsed||0)+1;
+  const cost=20*game.hintsUsed;           // escalating cost — thinking stays cheaper than hinting
+  game.score=Math.max(0,game.score-cost);
+  active.forEach(w=>{ w.hint=Math.min(w.answer.length, Math.max(w.hint+1, w.live+1)); });
+  beep(880,.08,"sine",.05);
+  flash("var(--accent)");
+  updateTrays(); updateHUD();
 }
 
 function pause(){
@@ -1034,8 +1339,12 @@ $("statsBack").onclick=()=>showOverlay("MENU");
 $("statsReset").onclick=()=>{stats={high:0,streak:0,solved:0,hits:0,correct:0,played:0};saveStats();renderStats();};
 $("pauseBtn").onclick=()=>{if(game.state==="PLAYING")pause();};
 $("guessBtn").onclick=openGuess;
-$("guessCancel").onclick=()=>{ hideOverlays(); game.state="PLAYING"; };
+$("hintBtn").onclick=useHint;
+$("guessCancel").onclick=()=>{ if(_guessTimer){ clearTimeout(_guessTimer); _guessTimer=null; } hideOverlays(); game.state="PLAYING"; };
 $("guessSubmit").onclick=submitGuess;
+$("finalSubmit").onclick=submitFinal;
+$("finalContinue").onclick=finishFinal;
+$("finalInput").addEventListener("keydown",e=>{ if(e.key==="Enter")submitFinal(); });
 $("btnResume").onclick=resume;
 $("btnRestart").onclick=()=>{hideOverlays();buildLevel();updateHUD();};
 $("btnQuit").onclick=quitToMenu;
